@@ -20,27 +20,35 @@ jobs:
           const fs = require('fs');
 
           const options = {
-            hostname: 'sneakernews.com',
-            path: '/release-dates/',
-            headers: { 'User-Agent': 'Mozilla/5.0' }
+            hostname: 'www.reddit.com',
+            path: '/r/SneakerReleases/new.json?limit=25',
+            headers: { 'User-Agent': 'sp242-release-tracker/1.0' }
           };
 
           https.get(options, res => {
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
-              const releases = [];
-              const regex = /class=\"release-date-product[^\"]*\"[\s\S]*?<h2[^>]*>(.*?)<\/h2>[\s\S]*?(\d{4}-\d{2}-\d{2}|\w+ \d+, \d{4})/g;
-              let match;
-              while ((match = regex.exec(data)) !== null && releases.length < 20) {
-                const name = match[1].replace(/<[^>]+>/g, '').trim();
-                const date = match[2].trim();
-                if (name && (name.toLowerCase().includes('jordan') || name.toLowerCase().includes('nike') || name.toLowerCase().includes('air'))) {
-                  releases.push({ name, date, status: 'pending', addedAt: new Date().toISOString() });
+              try {
+                const json = JSON.parse(data);
+                const posts = json.data.children;
+                const releases = [];
+                const seen = new Set();
+                for (const post of posts) {
+                  const title = post.data.title.trim();
+                  const date = new Date(post.data.created_utc * 1000).toISOString().substring(0,10);
+                  const lower = title.toLowerCase();
+                  if (!seen.has(title) && (lower.includes('jordan') || lower.includes('nike') || lower.includes('air max') || lower.includes('dunk') || lower.includes('yeezy') || lower.includes('release'))) {
+                    seen.add(title);
+                    releases.push({ name: title, date, status: 'pending', addedAt: new Date().toISOString() });
+                  }
                 }
+                fs.writeFileSync('releases.json', JSON.stringify(releases, null, 2));
+                console.log('Saved ' + releases.length + ' releases');
+              } catch(e) {
+                console.error('Parse error:', e.message);
+                fs.writeFileSync('releases.json', '[]');
               }
-              fs.writeFileSync('releases.json', JSON.stringify(releases, null, 2));
-              console.log('Saved ' + releases.length + ' releases');
             });
           }).on('error', e => {
             console.error(e);
