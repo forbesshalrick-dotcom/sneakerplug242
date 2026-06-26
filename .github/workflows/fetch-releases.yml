@@ -1,0 +1,57 @@
+name: Fetch Sneaker Releases
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch and save releases
+        run: |
+          node -e "
+          const https = require('https');
+          const fs = require('fs');
+
+          const options = {
+            hostname: 'sneakernews.com',
+            path: '/release-dates/',
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+          };
+
+          https.get(options, res => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+              const releases = [];
+              const regex = /class=\"release-date-product[^\"]*\"[\s\S]*?<h2[^>]*>(.*?)<\/h2>[\s\S]*?(\d{4}-\d{2}-\d{2}|\w+ \d+, \d{4})/g;
+              let match;
+              while ((match = regex.exec(data)) !== null && releases.length < 20) {
+                const name = match[1].replace(/<[^>]+>/g, '').trim();
+                const date = match[2].trim();
+                if (name && (name.toLowerCase().includes('jordan') || name.toLowerCase().includes('nike') || name.toLowerCase().includes('air'))) {
+                  releases.push({ name, date, status: 'pending', addedAt: new Date().toISOString() });
+                }
+              }
+              fs.writeFileSync('releases.json', JSON.stringify(releases, null, 2));
+              console.log('Saved ' + releases.length + ' releases');
+            });
+          }).on('error', e => {
+            console.error(e);
+            fs.writeFileSync('releases.json', '[]');
+          });
+          "
+
+      - name: Commit updated releases
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add releases.json
+          git diff --staged --quiet || git commit -m "Update sneaker releases"
+          git push
