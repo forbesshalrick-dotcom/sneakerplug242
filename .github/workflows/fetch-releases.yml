@@ -15,45 +15,33 @@ jobs:
 
       - name: Fetch and save releases
         run: |
+          curl -s -A "sp242-tracker/1.0" \
+            "https://www.reddit.com/r/SneakerReleases/new.json?limit=5" \
+            -o /tmp/reddit.json
+          echo "--- First 500 chars ---"
+          head -c 500 /tmp/reddit.json
           node -e "
-          const https = require('https');
           const fs = require('fs');
-
-          const options = {
-            hostname: 'www.reddit.com',
-            path: '/r/SneakerReleases/new.json?limit=25',
-            headers: { 'User-Agent': 'sp242-release-tracker/1.0' }
-          };
-
-          https.get(options, res => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-              try {
-                const json = JSON.parse(data);
-                const posts = json.data.children;
-                const releases = [];
-                const seen = new Set();
-                for (const post of posts) {
-                  const title = post.data.title.trim();
-                  const date = new Date(post.data.created_utc * 1000).toISOString().substring(0,10);
-                  const lower = title.toLowerCase();
-                  if (!seen.has(title) && (lower.includes('jordan') || lower.includes('nike') || lower.includes('air max') || lower.includes('dunk') || lower.includes('yeezy') || lower.includes('release'))) {
-                    seen.add(title);
-                    releases.push({ name: title, date, status: 'pending', addedAt: new Date().toISOString() });
-                  }
-                }
-                fs.writeFileSync('releases.json', JSON.stringify(releases, null, 2));
-                console.log('Saved ' + releases.length + ' releases');
-              } catch(e) {
-                console.error('Parse error:', e.message);
-                fs.writeFileSync('releases.json', '[]');
+          try {
+            const raw = fs.readFileSync('/tmp/reddit.json', 'utf8');
+            const json = JSON.parse(raw);
+            const posts = json.data.children;
+            const releases = [];
+            const seen = new Set();
+            for (const post of posts) {
+              const title = post.data.title.trim();
+              const date = new Date(post.data.created_utc * 1000).toISOString().substring(0,10);
+              if (!seen.has(title) && title.length > 3) {
+                seen.add(title);
+                releases.push({ name: title, date, status: 'pending', addedAt: new Date().toISOString() });
               }
-            });
-          }).on('error', e => {
-            console.error(e);
+            }
+            fs.writeFileSync('releases.json', JSON.stringify(releases, null, 2));
+            console.log('Saved ' + releases.length + ' releases');
+          } catch(e) {
+            console.error('Error:', e.message);
             fs.writeFileSync('releases.json', '[]');
-          });
+          }
           "
 
       - name: Commit updated releases
