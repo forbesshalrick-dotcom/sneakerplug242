@@ -15,33 +15,38 @@ jobs:
 
       - name: Fetch and save releases
         run: |
-          curl -s -A "sp242-tracker/1.0" \
-            "https://www.reddit.com/r/SneakerReleases/new.json?limit=5" \
-            -o /tmp/reddit.json
-          echo "--- First 500 chars ---"
-          head -c 500 /tmp/reddit.json
+          curl -s -L \
+            -H "User-Agent: Mozilla/5.0 (compatible; Googlebot/2.1)" \
+            "https://www.kicksonfire.com/feed/" \
+            -o /tmp/feed.xml
+          echo "--- First 300 chars ---"
+          head -c 300 /tmp/feed.xml
           node -e "
           const fs = require('fs');
-          try {
-            const raw = fs.readFileSync('/tmp/reddit.json', 'utf8');
-            const json = JSON.parse(raw);
-            const posts = json.data.children;
-            const releases = [];
-            const seen = new Set();
-            for (const post of posts) {
-              const title = post.data.title.trim();
-              const date = new Date(post.data.created_utc * 1000).toISOString().substring(0,10);
-              if (!seen.has(title) && title.length > 3) {
+          const raw = fs.readFileSync('/tmp/feed.xml', 'utf8');
+          const releases = [];
+          const seen = new Set();
+          const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+          const titleRegex = /<title><!\[CDATA\[(.*?)\]\]><\/title>|<title>(.*?)<\/title>/;
+          const dateRegex = /<pubDate>(.*?)<\/pubDate>/;
+          let match;
+          while ((match = itemRegex.exec(raw)) !== null && releases.length < 20) {
+            const item = match[1];
+            const titleMatch = titleRegex.exec(item);
+            const dateMatch = dateRegex.exec(item);
+            if (titleMatch) {
+              const title = (titleMatch[1] || titleMatch[2] || '').trim();
+              const pubDate = dateMatch ? dateMatch[1].trim() : '';
+              const date = pubDate ? new Date(pubDate).toISOString().substring(0,10) : '';
+              const lower = title.toLowerCase();
+              if (!seen.has(title) && title.length > 3 && (lower.includes('jordan') || lower.includes('nike') || lower.includes('air') || lower.includes('dunk') || lower.includes('release'))) {
                 seen.add(title);
                 releases.push({ name: title, date, status: 'pending', addedAt: new Date().toISOString() });
               }
             }
-            fs.writeFileSync('releases.json', JSON.stringify(releases, null, 2));
-            console.log('Saved ' + releases.length + ' releases');
-          } catch(e) {
-            console.error('Error:', e.message);
-            fs.writeFileSync('releases.json', '[]');
           }
+          fs.writeFileSync('releases.json', JSON.stringify(releases, null, 2));
+          console.log('Saved ' + releases.length + ' releases');
           "
 
       - name: Commit updated releases
