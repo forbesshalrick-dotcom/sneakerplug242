@@ -1,1 +1,32 @@
-[]
+[
+  {
+    "name": "Air Jordan 1 Retro High OG 'Black/White'",
+    "date": "2026-07-05",
+    "status": "pending",
+    "addedAt": "2026-06-26T00:00:00.000Z"
+  },
+  {
+    "name": "Nike Dunk Low 'Panda'",
+    "date": "2026-07-12",
+    "status": "pending",
+    "addedAt": "2026-06-26T00:00:00.000Z"
+  },
+  {
+    "name": "Air Jordan 4 Retro 'Military Blue'",
+    "date": "2026-07-19",
+    "status": "pending",
+    "addedAt": "2026-06-26T00:00:00.000Z"
+  },
+  {
+    "name": "Nike Air Max Plus 'Black/Gold'",
+    "date": "2026-07-26",
+    "status": "pending",
+    "addedAt": "2026-06-26T00:00:00.000Z"
+  },
+  {
+    "name": "Air Jordan 11 Retro 'Cherry'",
+    "date": "2026-12-13",
+    "status": "pending",
+    "addedAt": "2026-06-26T00:00:00.000Z"
+  }
+]
